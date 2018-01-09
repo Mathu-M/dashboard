@@ -168,7 +168,9 @@
   window.location.href = url;
   })
   $('#flag_incidental').bind('click', function(){
+    if (window.confirm("Are you sure you wish to flag an incidental finding?")) {
     window.location.href = "{{url_for('session', session_id=session.id, flag_finding=True) }}";
+  }
   })
   </script>
 {% endblock %}
