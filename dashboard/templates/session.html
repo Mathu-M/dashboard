@@ -67,6 +67,9 @@
   <div class="row">
     <div class="col-sm-12">
       <h3>
+        <a href="{{ url_for('redcap_refresh')}}" class="btn btn-primary">Refresh Redcap Comment</a>
+        <a href="{{ url_for('redcap_redirect', session_id=session.id) }}">link</a>
+
         {% if session.redcap_record %}
           Redcap comment:
           <small>

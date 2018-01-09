@@ -22,6 +22,10 @@ import shutil
 import logging
 from github import Github
 
+from config import REDCAP_TOKEN
+from requests import post
+
+
 from xml.sax.saxutils import escape
 
 logger = logging.getLogger(__name__)
@@ -337,6 +341,10 @@ def session(session_id=None, delete=False, flag_finding=False):
             logger.error('Session update failed:{}'.format(str(err)))
             flash('Update failed, admins have been notified, please try again')
         form.populate_obj(session)
+
+    flask_session['current_session'] = session.name
+
+    print "\n\n\n\n\n",session.name, session.redcap_comment, session.id, "\n\n\n\n\n"
 
     return render_template('session.html',
                            studies=studies,
@@ -733,6 +741,25 @@ def todo(study_id=None):
 
     return jsonify(todo_list)
 
+@app.route('/redcap_refresh')
+def redcap_refresh():
+    token = REDCAP_TOKEN
+    cur = str(flask_session['current_session'])
+    fLogic = '[par_id] = "' + cur + '"' 
+    fLogic = str(fLogic)
+    print fLogic
+    records = []
+    test_data = {
+        'token'  : token,
+        'content' : 'record',
+        'format' : 'json',
+        'type'   : 'flat',
+        'records': records,
+        'filterLogic': fLogic
+    }
+    response = post('https://edc.camhx.ca/redcap/api/',data=test_data)
+    json_data = response.json()
+    return response.text
 
 @app.route('/redcap', methods=['GET', 'POST'])
 def redcap():
