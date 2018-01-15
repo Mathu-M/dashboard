@@ -307,6 +307,7 @@ def session(session_id=None, delete=False, flag_finding=False):
             incident = IncidentalFinding()
             incident.session_id = session.id
             incident.user_id = current_user.id
+            incident.description = request.form['text']
 
             db.session.add(incident)
             db.session.commit()
@@ -344,7 +345,7 @@ def session(session_id=None, delete=False, flag_finding=False):
 
     flask_session['current_session'] = session.name
 
-    print "\n\n\n\n\n",session.name, session.redcap_comment, session.id, "\n\n\n\n\n"
+    #print "\n\n\n\n\n",session.name, session.redcap_comment, session.id, "\n\n\n\n\n"
 
     return render_template('session.html',
                            studies=studies,
@@ -745,7 +746,7 @@ def todo(study_id=None):
 def redcap_refresh():
     token = REDCAP_TOKEN
     cur = str(flask_session['current_session'])
-    fLogic = '[par_id] = "' + cur + '"' 
+    fLogic = '[par_id] = "' + cur + '"'
     fLogic = str(fLogic)
     print fLogic
     records = []

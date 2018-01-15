@@ -36,7 +36,27 @@
         </div>
         {% if not session.incidental_finding %}
           <div class="row">
-            <button class="btn btn-primary btn-block" id="flag_incidental">Flag Incidental finding</button>
+            <button type="button" class="btn btn-primary btn-block" data-toggle="modal" data-target="#submitModal">Flag Incidental finding</button>
+            <div class="modal fade" id="submitModal" tabindex="-1" role="dialog" aria-labelledby="submitModalLabel" aria-hidden="true">
+              <div class="modal-dialog" role="document">
+                <div class="modal-content">
+                  <div class="modal-header" style="color:grey;">
+                    <h4 class="modal-title" id="submitModalLabel">Please enter additional information about the incidental finding</h4>
+                  </div>
+                  <div class="modal-body">
+                    <form id="findingInfo" method="post">
+                      <div class="form-group">
+                        <textarea class="form-control" form="findingInfo" name="text" required></textarea>
+                      </div>
+                    </form>
+                  </div>
+                  <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+                    <input  form="findingInfo" type="submit" formaction="{{url_for('session', session_id=session.id, flag_finding=True) }}" class="btn btn-primary" value="File Incidental Finding">
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
         {% endif %}
       </span>
@@ -170,10 +190,10 @@
   url = "{{url_for('create_issue', session_id=session.id)}}/" + encodeURIComponent(issTitle) + '/' + encodeURIComponent(issBody)
   window.location.href = url;
   })
-  $('#flag_incidental').bind('click', function(){
-    if (window.confirm("Are you sure you wish to flag an incidental finding?")) {
-    window.location.href = "{{url_for('session', session_id=session.id, flag_finding=True) }}";
-  }
-  })
+
+  $('#findingInfo').submit(function(){
+      window.location.href = "{{url_for('session', session_id=session.id, flag_finding=True) }}";
+    }
+  })*/
   </script>
 {% endblock %}

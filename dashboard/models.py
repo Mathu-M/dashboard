@@ -539,6 +539,7 @@ class IncidentalFinding(db.Model):
         user_id = db.Column(db.Integer, db.ForeignKey('users.id'),
                             nullable=False)
         user = db.relationship('User', back_populates="incidental_findings")
+        description = db.Column(db.Text)
 
 class Session_Scan(db.Model):
     """
