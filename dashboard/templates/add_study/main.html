@@ -16,7 +16,7 @@
           <p data-dismiess='false'>
             {{ field }}
           </p>
-        {% else %}
+        {% elif field.id != 'csrf_token' %}
  	        <p>
  	          {{ field.label }}
             {% for error in field.errors %}
