@@ -17,6 +17,12 @@ from wtforms.validators import DataRequired, Email
 from models import Study, Analysis
 from wtforms.csrf.session import SessionCSRF
 
+
+from models import User, Site
+from wtforms import StringField
+from wtforms.validators import InputRequired, NoneOf, Length, Optional
+from wtforms.widgets import html_params, HTMLString
+
 class SelectMetricsForm(FlaskForm):
     study_vals = []
     site_vals = []
@@ -192,3 +198,95 @@ class NewIssueForm(FlaskForm):
             render_kw={'rows': 4, 'cols': 65, 'required': True,
             'placeholder': 'Enter issue here.'})
     submit = SubmitField('Create Issue')
+
+def multi_checkbox_table(field, cols=1, **kwargs):
+    html = []
+    kwargs.setdefault('type', 'checkbox')
+    field_id = kwargs.pop('id', field.id)
+    html.append(u'<table %s class="table">' % html_params(**kwargs))
+    i = 0
+    for value, label, checked in sorted(field.iter_choices(), key=lambda (v,l,c): l):
+        r = i % cols
+        if r == 0:
+            html.append('<tr>')
+        choice_id = u'{}-{}'.format(field_id, value)
+        options = dict(kwargs, name=field.name, value=value, id=choice_id)
+        if checked:
+            options['checked'] = 'checked'
+        html.append(u'<td><input %s /> ' % html_params(**options))
+        html.append(u'<label for="%s">%s</label></td>' % (field_id, label))
+        if cols == 1 or r == (cols-1):
+            html.append('</tr>')
+        i= i + 1
+    html.append('</table>')
+    return HTMLString(''.join(html))
+
+class StudyForm(FlaskForm):
+    study_nickname = StringField(u'ID',
+        render_kw={
+            'size':30
+        },
+        validators=[
+            NoneOf([], message=u'Study ID already exists'),
+            InputRequired(u'Required Field'),
+            Length(max=32, message=u'Length must be less than 33')
+        ])
+    study_name = StringField(u'Name',
+        render_kw={
+            'size':30
+        },
+        validators=[
+            InputRequired(u'Required Field'),
+            Length(max=1024, message=u'Length must be less than 1025')
+        ])
+    study_description = TextAreaField(u'Description',
+        render_kw={
+            'rows':3,
+            'cols':40
+        },
+        validators=[
+            Optional()
+        ])
+    study_readme = TextAreaField(u'README',
+        render_kw={
+            'rows':3,
+            'cols':40
+        },
+        validators=[
+            Optional()
+        ])
+
+    study_users = SelectMultipleField(u'Users',
+        widget=multi_checkbox_table,
+        render_kw={
+            'cols':7
+        },
+        validators=[
+            InputRequired(u'At least one User required')
+        ])
+    study_sites = SelectMultipleField(u'Sites',
+        widget=multi_checkbox_table,
+        render_kw={
+            'cols':17
+        },
+        validators=[
+            InputRequired(u'At least one Site required')
+        ])
+
+    submit_study = SubmitField(u'Add Study')
+
+
+    def __init__(self, *args, **kwargs):
+        FlaskForm.__init__(self, *args, **kwargs)
+
+        studies = Study.query.all()
+        study_nicknames = [str(study.id) for study in studies]
+        self.study_nickname.validators[0].values = study_nicknames
+
+        users = User.query.all()
+        user_choices = [(str(user.id), " ".join([user.first_name, user.last_name])) for user in users]
+        self.study_users.choices = user_choices
+
+        sites = Site.query.all()
+        site_choices = [(site.name, site.name) for site in sites]
+        self.study_sites.choices = site_choices

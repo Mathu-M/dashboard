@@ -30,7 +30,8 @@ from .models import Study, Site, Session, Scantype, Scan, User, \
 from .forms import SelectMetricsForm, StudyOverviewForm, \
         ScanChecklistForm, UserForm, AnalysisForm, \
         UserAdminForm, EmptySessionForm, IncidentalFindingsForm, \
-        TimepointCommentsForm, NewIssueForm, AccessRequestForm
+        TimepointCommentsForm, NewIssueForm, AccessRequestForm, \
+        StudyForm
 from .view_utils import get_user_form, report_form_errors, get_timepoint, \
         get_session, get_scan, handle_issue, get_redcap_record, \
         get_admin_user_form
@@ -632,6 +633,39 @@ def study(study_id=None, active_tab=None):
                            form=form,
                            active_tab=active_tab,
                            display_metrics=display_metrics)
+
+
+@app.route('/add_study', methods=['GET', 'POST'])
+@login_required
+@dashboard_admin_required
+def add_study():
+    study_form = StudyForm()
+
+    if study_form.submit_study.data and study_form.validate_on_submit():
+
+        nickname = str(study_form.study_nickname.data)
+        fullname = str(study_form.study_name.data)
+        description = str(study_form.study_description.data)
+        readme = str(study_form.study_readme.data)
+
+        new_study = Study(
+            study_id=nickname,
+            full_name=fullname,
+            description=description,
+            read_me=readme
+        )
+
+        new_study.save()
+
+        for user_id in study_form.study_users.data:
+            user = User.query.get(user_id)
+            user.add_studies([nickname])
+
+        for site_id in study_form.study_sites.data:
+            site = Site.query.get(site_id)
+            new_study.add_sites(site_id)
+
+    return render_template('add_study/main.html', study_form=study_form)
 
 
 @app.route('/person')

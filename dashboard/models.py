@@ -570,6 +570,24 @@ class Study(db.Model):
         next_idx = randint(0, len(user_list) - 1)
         return user_list[next_idx]
 
+    def add_sites(self, site_ids, uses_redcap=False, code=None):
+        if not isinstance(site_ids, list):
+            site_ids = [site_ids]
+        for site in site_ids:
+            record = StudySite(self.id, site, uses_redcap, code)
+            self.sites[site] = record
+        self.save()
+
+    def remove_sites(self, site_ids):
+        if not isinstance(site_ids, list):
+            site_ids = [site_ids]
+        for site in site_ids:
+            if isinstance(site, StudySite):
+                site = site.site
+            db.session.delete(self.sites[site])
+        self.save()
+
+
     def save(self):
         db.session.add(self)
         db.session.commit()

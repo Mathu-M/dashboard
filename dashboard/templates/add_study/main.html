@@ -1,0 +1,33 @@
+<!-- Main add study page -->
+{% extends 'base.html' %}
+{% include 'flash.html' %}
+{% block content %}
+
+<div class="container">
+  <div class="row">
+    <div class="jumbotron">
+      <h1>Add Study</h1>
+    </div>
+  </div>
+  <form action='' method='post'>
+    {{ study_form.hidden_tag() }}
+      {% for field in study_form %}
+        {% if field == study_form.submit_study %}
+          <p data-dismiess='false'>
+            {{ field }}
+          </p>
+        {% else %}
+ 	        <p>
+ 	          {{ field.label }}
+            {% for error in field.errors %}
+              <span style="color: red;">[{{ error }}]</span>
+            {% endfor %}
+            <br>
+ 	          {{ field }}
+ 	        </p>
+        {% endif %}
+      {% endfor %}
+    </form>
+</div>
+
+{% endblock %}
