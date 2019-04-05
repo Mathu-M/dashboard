@@ -14,6 +14,7 @@ from random import randint
 
 from flask_login import UserMixin
 from sqlalchemy import and_, exists, func
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import deferred
 from sqlalchemy.schema import UniqueConstraint, ForeignKeyConstraint
 from sqlalchemy.orm.collections import attribute_mapped_collection
@@ -544,8 +545,16 @@ class Study(db.Model):
     def get_staff_contacts(self):
         return [su.user for su in self.users if su.kimel_contact]
 
-    def get_RAs(self):
-        return [su.user for su in self.users if su.study_RA]
+    def get_RAs(self, site=None):
+        if site:
+            # Get all users who are an RA for this specific site or
+            # an RA for the whole study
+            RAs = [su.user for su in self.users
+                    if su.study_RA and (not su.site or su.site == site)]
+        else:
+            # Get all RAs for the study
+            RAs = [su.user for su in self.users if su.study_RA]
+        return RAs
 
     def get_QCers(self):
         return [su.user for su in self.users if su.does_qc]
@@ -622,6 +631,7 @@ class Timepoint(db.Model):
             nullable=False)
     is_phantom = db.Column('is_phantom', db.Boolean, nullable=False,
             default=False)
+    header_diffs = db.Column('header_diffs', JSONB)
     # These columns should be removed when the static QC pages are made obsolete
     last_qc_repeat_generated =  db.Column('last_qc_generated', db.Integer,
             nullable=False, default=1)
@@ -691,25 +701,6 @@ class Timepoint(db.Model):
             raise
         return session
 
-    def get_study(self, study_id=None):
-        """
-        Most timepoints only ever have one study and this will just return
-        the first one found. If 'id' is given it will either return the study
-        object or raise an exception if this timepoint doesnt belong to that
-        study
-        """
-        if study_id:
-            try:
-                return self.studies[study_id]
-            except KeyError:
-                raise InvalidDataException("Timepoint {} does not belong to "
-                        "study {}".format(self, study_id))
-        try:
-            study = self.studies.values()[0]
-        except IndexError:
-            raise InvalidDataException("Timepoint {} does not have any studies "
-                    "configured.".format(self))
-        return study
 
     def get_blacklist_entries(self):
         """
@@ -720,6 +711,14 @@ class Timepoint(db.Model):
         for session in self.sessions.values():
             entries.extend(session.get_blacklist_entries())
         return entries
+
+    def add_header_diffs(self, json_diffs):
+        self.header_diffs = json_diffs
+        try:
+            self.save()
+        except Exception as e:
+            raise InvalidDataException("Can't add header diffs to {}. "
+                    "Reason: {}".format(self, e))
 
     def belongs_to(self, study):
         """
@@ -964,7 +963,7 @@ class Session(db.Model):
         if comment:
             rc_record.comment = comment
         if version:
-            rc_record.version = version
+            rc_record.redcap_version = version
         if event_id:
             rc_record.event_id = event_id
         try:
@@ -1031,6 +1030,7 @@ class Session(db.Model):
     def __str__(self):
         return "{}_{:02}".format(self.name, self.num)
 
+
 class EmptySession(db.Model):
     """
     This table exists solely so QCers can dismiss errors about empty sessions
@@ -1087,9 +1087,26 @@ class SessionRedcap(db.Model):
         self.num = num
         self.record_id = record_id
 
+    def share_record(self, target_session):
+        """
+        Shares an existing redcap record with another session that represents
+        an alternate ID for the original participant
+        """
+        target_session.redcap_record = SessionRedcap(target_session.name,
+                target_session.num, self.record_id)
+        db.session.add(target_session)
+        try:
+            db.session.commit()
+        except Exception as e:
+            raise InvalidDataException("Failed to share redcap record {} with "
+                    "session {}".format(self.record_id, target_session))
+            return None
+        return target_session.redcap_record
+
     def __repr__(self):
         return "<SessionRedcap {}, {} - record {}>".format(self.name,
                 self.num, self.record_id)
+
 
 class Scan(db.Model):
     __tablename__ = 'scans'
@@ -1180,6 +1197,13 @@ class Scan(db.Model):
 
     def list_children(self):
         return [link.name for link in self.links]
+
+    def get_header_diffs(self):
+        try:
+            diffs = self.session.timepoint.header_diffs[self.name]
+        except:
+            diffs = {}
+        return diffs
 
     def delete(self):
         db.session.delete(self)
@@ -1331,6 +1355,8 @@ class StudyUser(db.Model):
             nullable=False, primary_key=True)
     user_id = db.Column('user_id', db.Integer, db.ForeignKey('users.id'),
             nullable=False, primary_key=True)
+    site = db.Column('site_only', db.String(32), db.ForeignKey('sites.name'),
+            primary_key=True)
     is_admin = db.Column('is_admin', db.Boolean, default=False)
     primary_contact = db.Column('primary_contact', db.Boolean, default=False)
     kimel_contact = db.Column('kimel_contact', db.Boolean, default=False)
