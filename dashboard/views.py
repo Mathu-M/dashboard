@@ -1,4 +1,5 @@
 import json
+import yaml
 import csv
 import io
 import os
@@ -9,6 +10,7 @@ import logging
 from functools import wraps
 from xml.sax.saxutils import escape
 
+from collections import OrderedDict
 from urlparse import urlparse, urljoin
 from flask import session as flask_session
 from flask import render_template, flash, url_for, redirect, request, jsonify, \
@@ -640,12 +642,27 @@ def study(study_id=None, active_tab=None):
 @dashboard_admin_required
 def add_study():
     study_form = StudyForm()
+    scroll=None
 
+    if study_form.study_add_site.data:
+        study_form.study_sites.append_entry()
+        scroll = 'study_add_site'
+    if study_form.study_remove_site.data:
+        study_form.study_sites.pop_entry()
+        scroll = 'study_remove_site'
     if study_form.submit_study.data and study_form.validate_on_submit():
 
+        data = OrderedDict()
+
         nickname = str(study_form.study_nickname.data)
+        data['PROJECTDIR'] = nickname
+
         fullname = str(study_form.study_name.data)
+        data['FullName'] = fullname
+
         description = str(study_form.study_description.data)
+        if description:
+            data['Description'] = description
         readme = str(study_form.study_readme.data)
 
         new_study = Study(
@@ -661,11 +678,26 @@ def add_study():
             user = User.query.get(user_id)
             user.add_studies([nickname])
 
-        for site_id in study_form.study_sites.data:
+        data['Sites'] = OrderedDict()
+        for site_data in study_form.study_sites.data:
+            print(site_data)
+            site_id = str(site_data['site_name'])
             site = Site.query.get(site_id)
             new_study.add_sites(site_id)
+            data['Sites'][site_id] = OrderedDict()
+            for k in site_data.keys():
+                if site_data[k]:
+                    data['Sites'][site_id][k.upper().replace('_', ' ')] = str(site_data[k])
 
-    return render_template('add_study/main.html', study_form=study_form)
+
+        yaml.add_representer(OrderedDict, lambda self, data: yaml.representer.SafeRepresenter.represent_dict(self, data.items()))
+        output_dir = app.config['OUTPUT_DIR']
+
+        settings_yml = os.path.join(output_dir, "{}_settings.yml".format(nickname))
+        with open(settings_yml, 'w') as fp:
+            yaml.dump(data, fp, indent=4, default_flow_style=False)
+
+    return render_template('add_study/main.html', study_form=study_form, scroll=scroll)
 
 
 @app.route('/person')

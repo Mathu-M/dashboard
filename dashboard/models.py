@@ -317,7 +317,7 @@ class Study(db.Model):
 
     def __init__(self, study_id, full_name=None, description=None, read_me=None):
         self.id = study_id
-        self.full_name = full_name
+        self.name = full_name
         self.description = description
         self.read_me = read_me
 

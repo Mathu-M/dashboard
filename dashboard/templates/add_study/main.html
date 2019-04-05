@@ -16,7 +16,7 @@
           <p data-dismiess='false'>
             {{ field }}
           </p>
-        {% elif field.id != 'csrf_token' %}
+        {% elif field.id != 'csrf_token' and field.id not in ('study_sites','study_add_site', 'study_remove_site') %}
  	        <p>
  	          {{ field.label }}
             {% for error in field.errors %}
@@ -27,7 +27,95 @@
  	        </p>
         {% endif %}
       {% endfor %}
+      {{ study_form.study_sites.label }}
+      <span style="color: red;">{{ study_form.study_sites.errors[-1] }}</span>
+      <br>
+      {{ study_form.study_add_site }}
+      {{ study_form.study_remove_site }}
+      <br><br>
+      <table class='table'>
+        <tbody>
+          {% for site in study_form.study_sites %}
+            <tr style='padding-bottom: 5px'>
+              <td>
+                {{ site.site_name.label }}
+                {{ site.site_name }}
+              </td>
+              <td>
+                {{ site.site_tags.label }}
+                {{ site.site_tags }}
+              </td>
+              <td>
+                {{ site.xnat_archive.label }}
+                {{ site.xnat_archive }}
+              </td>
+              <td>
+                <button type='button' class='btn btn-info' data-toggle="collapse" data-target="#site-advanced-options-{{loop.index0}}">
+                  Advanced Options
+                </button>
+              </td>
+            </tr>
+            <tr>
+              <td colspan="4">
+                <div id='site-advanced-options-{{loop.index0}}' class='collapse'>
+                  <table class='table'>
+                    <tbody>
+                      <tr>
+                        {% for ftp in site.ftpserver, site.ftpport, site.redcap_api %}
+                          <td>
+                            <span class='pull-right'>
+                              {{ ftp.label }}
+                              {{ ftp(title=ftp.description) }}
+                            </span>
+                          </td>
+                        {% endfor %}
+                      </tr>
+                      <tr>
+                        {% for mr in site.mrfolder, site.mruser, site.mrfolder %}
+                          <td>
+                            <span class='pull-right'>
+                              {{ mr.label }}
+                              {{ mr(title=mr.description) }}
+                            </span>
+                          </td>
+                        {% endfor %}
+                      </tr>
+                      <tr>
+                        {% for xnat in site.xnat_source, site.xnat_source_archive, site.xnat_source_credentials %}
+                          <td>
+                            <span class='pull-right'>
+                              {{ xnat.label }}
+                              {{ xnat(title=xnat.description) }}
+                            </span>
+                          </td>
+                        {% endfor %}
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
     </form>
 </div>
+
+{% if scroll %}
+<script type=text/javascript>
+  document.getElementById('{{ scroll }}').scrollIntoView({ behavior: 'smooth' , block: 'start', inline: 'nearest'});
+
+  $('.advanced-options-btn').click(function() {
+    row = $(this).closest("tr")[0].nextElementSibling.id;
+    row_id = "#" + row;
+    if ($(row_id).is(':hidden')) {
+      $(row_id).slideDown();
+    } else {
+      $(row_id).slideUp();
+    }
+  });
+
+</script>
+{% endif %}
 
 {% endblock %}

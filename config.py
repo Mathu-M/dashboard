@@ -130,6 +130,8 @@ except AttributeError:
 # For retrieving records after a data entry trigger is received
 REDCAP_TOKEN = os.environ.get('REDCAP_TOKEN')
 
+OUTPUT_DIR = os.environ.get('OUTPUT_DIR')
+
 # This probably needs to be scrapped / changed when we fix our metrics +
 # graphs and stuff
 DISPLAY_METRICS = {'phantom': {'t1': ['c1', 'c2', 'c3', 'c4'],

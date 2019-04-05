@@ -19,8 +19,9 @@ from wtforms.csrf.session import SessionCSRF
 
 
 from models import User, Site
+from wtforms import Form
 from wtforms import StringField
-from wtforms.validators import InputRequired, NoneOf, Length, Optional
+from wtforms.validators import InputRequired, NoneOf, Length, Optional, ValidationError
 from wtforms.widgets import html_params, HTMLString
 
 class SelectMetricsForm(FlaskForm):
@@ -221,6 +222,106 @@ def multi_checkbox_table(field, cols=1, **kwargs):
     html.append('</table>')
     return HTMLString(''.join(html))
 
+def submit_button(field, sclass='', text='', **kwargs):
+    kwargs.setdefault('value', field.label.text)
+    kwargs.setdefault('id', field.id)
+    kwargs.setdefault('type', 'submit')
+    if 'value' not in kwargs:
+        kwargs['value'] = field._value()
+    if not text:
+        text = kwargs['value']
+    html=[]
+
+    html.append('<button {}>'.format(html_params(name=field.name, **kwargs)))
+    html.append('<span class="{}"></span>{}</button>'.format(sclass, text))
+    return HTMLString(''.join(html))
+
+def field_list_unique_values(unique_field):
+    message = 'Duplicate Values: {}'
+
+    def _no_dups(form,field):
+        dups = set()
+        for i in range(0, len(field.data)):
+            for j in range(i+1, len(field.data)):
+                if field.data[i][unique_field] == field.data[j][unique_field]:
+                    dups.add(str(field.data[i][unique_field]))
+        if len(dups) > 0:
+            raise ValidationError(message.format(", ".join(dups)))
+
+    return _no_dups
+
+class SiteForm(Form):
+    site_name = SelectField(u'Select Site',
+        default=' ',
+        choices=[' '],
+        validators=[
+            InputRequired(u'Required Field')
+        ])
+
+    site_tags = StringField(u'Site Tags',
+        validators=[
+            Optional()
+        ])
+
+    xnat_archive = StringField(u'XNAT Archive',
+        validators=[
+            Optional()
+        ])
+
+    # scantypes
+
+    ftpserver = StringField(u'FTPSERVER',
+        description='Overrides the default server usually set ing the site wide config',
+        validators=[
+            Optional()
+        ])
+    ftpport = StringField(u'FTPPORT',
+        description='Allows a site to use a non-standard port for the sftp server',
+        validators=[
+            Optional()
+        ])
+    mrftppass = StringField(u'MRFTPPASS',
+        description='Should be set to the name of the file in the metadata folder that will hold this site\'s sftp account password',
+        validators=[
+            Optional()
+        ])
+    mruser = StringField(u'MRUSER',
+        description='Overrides the default MRUSER for the study',
+        validators=[
+            Optional()
+        ])
+    mrfolder = StringField(u'MRFOLDER',
+        description='Overrides default MRFOLDER for the study',
+        validators=[
+            Optional()
+        ])
+    xnat_source = StringField(u'XNAT Source',
+        description='The URL for the remote XNAT server to pull from',
+        validators=[
+            Optional()
+        ])
+    xnat_source_archive = StringField(u'XNAT Source Archive',
+        description='The Project ID on the XNAT server that holds this site\'s data',
+        validators=[
+            Optional()
+        ])
+    xnat_source_credentials = StringField(u'XNAT Source Credentials',
+        description='The name of the text file in the metadata forlder that will hold the username and password on separate lines (in that order)',
+        validators=[
+            Optional()
+        ])
+    redcap_api = StringField(u'REDCAP API',
+        description='Server that hosts the \'Scan Completed\' surveys (or any other surveys that need to be pulled in',
+        validators=[
+            Optional()
+        ])
+
+    def __init__(self, *args, **kwargs):
+        Form.__init__(self, *args, **kwargs)
+        sites = Site.query.all()
+        site_choices = [(str(site.name), site.name) for site in sites]
+        self.site_name.choices = sorted(site_choices, key=lambda x: x[1])
+
 class StudyForm(FlaskForm):
     study_nickname = StringField(u'ID',
         render_kw={
@@ -259,19 +360,29 @@ class StudyForm(FlaskForm):
     study_users = SelectMultipleField(u'Users',
         widget=multi_checkbox_table,
         render_kw={
-            'cols':7
+            'cols':6
         },
         validators=[
             InputRequired(u'At least one User required')
         ])
-    study_sites = SelectMultipleField(u'Sites',
-        widget=multi_checkbox_table,
-        render_kw={
-            'cols':17
-        },
+
+    study_sites = FieldList(FormField(SiteForm),
+        min_entries=1,
         validators=[
-            InputRequired(u'At least one Site required')
+            field_list_unique_values('site_name')
         ])
+
+    study_add_site = SubmitField(u'Add Site',
+        widget=submit_button,
+        render_kw={
+            'sclass':'glyphicon glyphicon-plus',
+        })
+
+    study_remove_site = SubmitField(u'Remove Site',
+        widget=submit_button,
+        render_kw={
+            'sclass':'glyphicon glyphicon-minus',
+        })
 
     submit_study = SubmitField(u'Add Study')
 
