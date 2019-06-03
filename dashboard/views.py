@@ -2,7 +2,7 @@ import json
 import yaml
 import csv
 import io
-import os
+import os,sys, re
 import codecs
 import datetime
 import shutil
@@ -18,6 +18,7 @@ from flask import render_template, flash, url_for, redirect, request, jsonify, \
 from flask_login import login_user, logout_user, current_user, \
         login_required, fresh_login_required, login_fresh
 from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy import exists
 from oauth import OAuthSignIn
 
 from dashboard import app, db, lm
@@ -647,11 +648,12 @@ def add_study():
     if study_form.study_add_site.data:
         study_form.study_sites.append_entry()
         scroll = 'study_add_site'
-    if study_form.study_remove_site.data:
-        study_form.study_sites.pop_entry()
+    elif study_form.study_remove_site.data:
+        if len(study_form.study_sites) > 1:
+            study_form.study_sites.pop_entry()
         scroll = 'study_remove_site'
-    if study_form.submit_study.data and study_form.validate_on_submit():
 
+    elif study_form.submit_study.data and study_form.validate_on_submit():
         data = OrderedDict()
 
         nickname = str(study_form.study_nickname.data)
@@ -663,6 +665,10 @@ def add_study():
         description = str(study_form.study_description.data)
         if description:
             data['Description'] = description
+
+        pc = User.query.get(study_form.study_primary.data)
+        data['PrimaryContact'] = "{} {}".format(pc.first_name, pc.last_name)
+
         readme = str(study_form.study_readme.data)
 
         new_study = Study(
@@ -679,15 +685,54 @@ def add_study():
             user.add_studies([nickname])
 
         data['Sites'] = OrderedDict()
-        for site_data in study_form.study_sites.data:
-            print(site_data)
+        for i in range(0, len(study_form.study_sites)):
+            site = study_form.study_sites[i]
+            site_data = site.data
             site_id = str(site_data['site_name'])
-            site = Site.query.get(site_id)
+            if not db.session.query(exists().where(Site.name==site_id)).scalar():
+                new_site = Site(site_name=site_id)
+                new_site.save()
+
             new_study.add_sites(site_id)
             data['Sites'][site_id] = OrderedDict()
             for k in site_data.keys():
-                if site_data[k]:
-                    data['Sites'][site_id][k.upper().replace('_', ' ')] = str(site_data[k])
+                if site_data[k] and (k != 'site_name') and ('scantypes' not in k):
+                    try:
+                        d = int(str(site_data[k]))
+                    except ValueError:
+                        d = str(site_data[k])
+                    data['Sites'][site_id][k.upper().replace('_', ' ')] = d
+
+
+            data['Sites'][site_id]['ExportInfo'] = OrderedDict()
+            scantype_dict = data['Sites'][site_id]['ExportInfo']
+
+            for i in range(0, len(site.scantypes)):
+                scantype_data = site.scantypes[i].data
+                tag = str(scantype_data['scantype_name'])
+
+                if not db.session.query(exists().where(Scantype.tag==tag)).scalar():
+                    new_scantype = Site(tag=tag)
+                    new_scantype.save()
+
+                scantype_dict[tag] = OrderedDict()
+                if scantype_data['patterns']:
+                    scantype_dict[tag]['Pattern'] = OrderedDict()
+                    pairs = re.split(r',(?![^\(\[]*[\]\)])', scantype_data['patterns'])
+                    for pair in pairs:
+                        kv = pair.split(":")
+                        key = str(kv[0]).strip()
+                        try:
+                            value = int(str(kv[1]))
+                        except ValueError:
+                            value = str(kv[1]).strip()
+                            if value[0] == "[" and value[-1] == "]":
+                                value = value[1:-1].split(',')
+
+                        scantype_dict[tag]['Pattern'][key] = value
+
+                scantype_dict[tag]['Count'] = scantype_data['count']
+
 
 
         yaml.add_representer(OrderedDict, lambda self, data: yaml.representer.SafeRepresenter.represent_dict(self, data.items()))
@@ -696,6 +741,19 @@ def add_study():
         settings_yml = os.path.join(output_dir, "{}_settings.yml".format(nickname))
         with open(settings_yml, 'w') as fp:
             yaml.dump(data, fp, indent=4, default_flow_style=False)
+    else:
+        for i in range(0, len(study_form.study_sites)):
+            site = study_form.study_sites[i]
+            scantypes = study_form.study_sites[i].scantypes
+            if site.data['add_scantype']:
+                scantypes.append_entry()
+                scroll= 'study_add_site'
+                break
+            elif site.data['remove_scantype']:
+                if len(scantypes) > 1:
+                    scantypes.pop_entry()
+                scroll = 'study_remove_site'
+                break
 
     return render_template('add_study/main.html', study_form=study_form, scroll=scroll)
 

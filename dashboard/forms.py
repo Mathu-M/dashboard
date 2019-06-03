@@ -18,10 +18,10 @@ from models import Study, Analysis
 from wtforms.csrf.session import SessionCSRF
 
 
-from models import User, Site
+from models import User, Site, Scantype
 from wtforms import Form
-from wtforms import StringField
-from wtforms.validators import InputRequired, NoneOf, Length, Optional, ValidationError
+from wtforms import StringField, IntegerField
+from wtforms.validators import InputRequired, NoneOf, Length, Optional, ValidationError, NumberRange
 from wtforms.widgets import html_params, HTMLString
 
 class SelectMetricsForm(FlaskForm):
@@ -222,6 +222,23 @@ def multi_checkbox_table(field, cols=1, **kwargs):
     html.append('</table>')
     return HTMLString(''.join(html))
 
+def selectstring(field, **kwargs):
+    kwargs.setdefault('id', field.id)
+    html = ['<input placeholder="&#x25BC;"  list="{0}" name="{0}"/>'.format(field.name)]
+    html.append('<datalist {}>'.format(html_params(name=field.name, **kwargs)))
+    for value, label, selected in field.iter_choices():
+        options = dict(value=value)
+        if selected:
+            options['selected'] = True
+        html.append(HTMLString('<option {}>{}</option>'.format(html_params(**options), str(label))))
+    html.append('</datalist>')
+    to_ret = HTMLString(''.join(html))
+    return to_ret
+
+class AnyChoiceSelectField(SelectField):
+    def pre_validate(self, form):
+        pass
+
 def submit_button(field, sclass='', text='', **kwargs):
     kwargs.setdefault('value', field.label.text)
     kwargs.setdefault('id', field.id)
@@ -250,6 +267,29 @@ def field_list_unique_values(unique_field):
 
     return _no_dups
 
+class ScantypeForm(Form):
+    scantype_name = SelectField(u'Select Scantype',
+        default=' ',
+        choices=[' '],
+        validators=[
+            InputRequired(u'Required Field'),
+        ])
+    patterns = StringField(u'Patterns',
+        validators=[
+            Optional()
+        ])
+    count = IntegerField(u'Count',
+        validators=[
+            Optional(),
+            NumberRange(min=0, message='Count must not be below 0')
+        ])
+
+    def __init__(self, *args, **kwargs):
+        Form.__init__(self, *args, **kwargs)
+        scantypes = Scantype.query.all()
+        scantype_choices = [(str(scantype.tag), str(scantype.tag)) for scantype in scantypes]
+        self.scantype_name.choices = sorted(scantype_choices, key=lambda x: x[1])
+
 class SiteForm(Form):
     site_name = SelectField(u'Select Site',
         default=' ',
@@ -268,7 +308,23 @@ class SiteForm(Form):
             Optional()
         ])
 
-    # scantypes
+    scantypes = FieldList(FormField(ScantypeForm),
+        min_entries=1,
+        validators=[
+            field_list_unique_values('scantype_name')
+        ])
+
+    add_scantype = SubmitField(u'Add Scantype',
+        widget=submit_button,
+        render_kw={
+            'sclass':'glyphicon glyphicon-plus',
+        })
+
+    remove_scantype = SubmitField(u'Remove Scantype',
+        widget=submit_button,
+        render_kw={
+            'sclass':'glyphicon glyphicon-minus',
+        })
 
     ftpserver = StringField(u'FTPSERVER',
         description='Overrides the default server usually set ing the site wide config',
@@ -357,6 +413,12 @@ class StudyForm(FlaskForm):
             Optional()
         ])
 
+    study_primary = SelectField(u'Primary Contact',
+        validators=[
+            InputRequired(u'Required Field')
+        ]
+    )
+
     study_users = SelectMultipleField(u'Users',
         widget=multi_checkbox_table,
         render_kw={
@@ -384,7 +446,8 @@ class StudyForm(FlaskForm):
             'sclass':'glyphicon glyphicon-minus',
         })
 
-    submit_study = SubmitField(u'Add Study')
+    submit_study = SubmitField(u'Add Study',
+        widget=submit_button)
 
 
     def __init__(self, *args, **kwargs):
@@ -397,6 +460,7 @@ class StudyForm(FlaskForm):
         users = User.query.all()
         user_choices = [(str(user.id), " ".join([user.first_name, user.last_name])) for user in users]
         self.study_users.choices = user_choices
+        self.study_primary.choices = [('', '')] + sorted(user_choices, key=lambda x: x[1])
 
         sites = Site.query.all()
         site_choices = [(site.name, site.name) for site in sites]

@@ -619,6 +619,10 @@ class Site(db.Model):
         self.name = site_name
         self.description = description
 
+    def save(self):
+        db.session.add(self)
+        db.session.commit()
+
     def __repr__(self):
         return "<Site {}>".format(self.name)
 
@@ -1282,6 +1286,10 @@ class Scantype(db.Model):
 
     def __init__(self, tag):
         self.tag = tag
+
+    def save(self):
+        db.session.add(self)
+        db.session.commit()
 
     def __repr__(self):
         return "<Scantype {}>".format(self.tag)

@@ -9,14 +9,10 @@
       <h1>Add Study</h1>
     </div>
   </div>
-  <form action='' method='post'>
+  <form action='' method='post' autocomplete="off">
     {{ study_form.hidden_tag() }}
       {% for field in study_form %}
-        {% if field == study_form.submit_study %}
-          <p data-dismiess='false'>
-            {{ field }}
-          </p>
-        {% elif field.id != 'csrf_token' and field.id not in ('study_sites','study_add_site', 'study_remove_site') %}
+        {% if field.id != 'csrf_token' and field.id not in ('study_sites','study_add_site', 'study_remove_site', 'tempy', 'submit_study') %}
  	        <p>
  	          {{ field.label }}
             {% for error in field.errors %}
@@ -30,8 +26,8 @@
       {{ study_form.study_sites.label }}
       <span style="color: red;">{{ study_form.study_sites.errors[-1] }}</span>
       <br>
-      {{ study_form.study_add_site }}
-      {{ study_form.study_remove_site }}
+      {{ study_form.study_add_site(class_="btn btn-info") }}
+      {{ study_form.study_remove_site(class_="btn btn-info") }}
       <br><br>
       <table class='table'>
         <tbody>
@@ -71,7 +67,7 @@
                         {% endfor %}
                       </tr>
                       <tr>
-                        {% for mr in site.mrfolder, site.mruser, site.mrfolder %}
+                        {% for mr in site.mrfolder, site.mruser, site.mrftppass %}
                           <td>
                             <span class='pull-right'>
                               {{ mr.label }}
@@ -90,6 +86,46 @@
                           </td>
                         {% endfor %}
                       </tr>
+                      <tr>
+                        <td colspan="4">
+                          <div id='site-scantypes-{{loop.index0}}'>
+                            <table class='table'>
+                              <tbody>
+                                <tr>
+                                  <td colspan="3">
+                                    <div class="btn-group" style="width:100%">
+                                      {{ site.add_scantype(class_="btn btn-info", style="width:50%") }}
+                                      {{ site.remove_scantype(class_="btn btn-info", style="width:50%") }}
+                                    </div>
+                                  </td>
+                                </tr>
+                                {% for scantype in site.scantypes %}
+                                  <tr>
+                                    <td>
+                                      <span class='pull-right'>
+                                        {{ scantype.scantype_name.label }}
+                                        {{ scantype.scantype_name }}
+                                      </span>
+                                    </td>
+                                    <td>
+                                      <span class='pull-right'>
+                                        {{ scantype.patterns.label }}
+                                        {{ scantype.patterns }}
+                                      </span>
+                                    </td>
+                                    <td>
+                                      <span class='pull-right'>
+                                        {{ scantype.count.label }}
+                                        {{ scantype.count }}
+                                      </span>
+                                    </td>
+                                  </tr>
+                                {% endfor %}
+                              </tbody>
+                            </table>
+                          </div>
+                        </td>
+                      </tr>
                     </tbody>
                   </table>
                 </div>
@@ -98,8 +134,15 @@
           {% endfor %}
         </tbody>
       </table>
+      {{ study_form.submit_study }}
     </form>
 </div>
+
+<style>
+  input::placeholder {
+    text-align: right;
+  }
+</style>
 
 {% if scroll %}
 <script type=text/javascript>
